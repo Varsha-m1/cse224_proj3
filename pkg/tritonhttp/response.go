@@ -67,13 +67,13 @@ func (res *Response) WriteStatusLine(w io.Writer) error {
 // For HTTP, there is no need to write headers in any particular order.
 // TritonHTTP requires to write in sorted order for the ease of testing.
 func (res *Response) WriteSortedHeaders(w io.Writer) error {
-	responseMsg := ""
-	DELIM := "\r\n"
-	m := make(map[string]string)
-	keys := make([]string, 0, len(m))
+	response := ""
+	delimiter := "\r\n"
+	responseMap := make(map[string]string)
+	keys := make([]string, 0, len(responseMap))
 	for k, v := range res.Header {
 		keys = append(keys, k)
-		m[k] = v
+		responseMap[k] = v
 	}
 	sort.Strings(keys)
 
@@ -81,12 +81,12 @@ func (res *Response) WriteSortedHeaders(w io.Writer) error {
 		v := m[k]
 		fmt.Println(k, v)
 		line := k + ": " + v
-		responseMsg = responseMsg + line + DELIM
+		response = response + line + delimiter
 	}
 
-	responseMsg = responseMsg + DELIM
+	response = response + delimiter
 	bw := bufio.NewWriter(w)
-	if _, err := bw.WriteString(responseMsg); err != nil {
+	if _, err := bw.WriteString(response); err != nil {
 		return err
 	}
 

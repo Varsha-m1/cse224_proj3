@@ -78,9 +78,9 @@ func ReadRequest(br *bufio.Reader) (req *Request, bytesReceived bool, err error)
 			break
 		}
 
-		key, val, err := getKeyValue(line)
+		key, value, err := getKeyValue(line)
 
-		if (key == "" && val != "") || invalidVal(val) || invalidKey(key) {
+		if (key == "" && value != "") || invalidVal(value) || invalidKey(key) {
 			req.Close = false
 			return req, false, badStringError("malformed body key val", "")
 		}
@@ -89,16 +89,16 @@ func ReadRequest(br *bufio.Reader) (req *Request, bytesReceived bool, err error)
 		}
 		key = CanonicalHeaderKey(key)
 		if key == "Host" {
-			req.Host = val
+			req.Host = value
 		} else if strings.EqualFold(key, "Connection") {
-			if val == "close" {
+			if value == "close" {
 				req.Close = true
 			} else {
 				continue
 			}
 
 		} else {
-			m[key] = val
+			m[key] = value
 		}
 	}
 
@@ -110,7 +110,7 @@ func badStringError(what, val string) error {
 	return errors.New(fmt.Sprintf("%s %q", what, val))
 }
 
-func invalidVal(val string) bool {
+func invalidValue(val string) bool {
 	if strings.Contains(val, "\r\n") || (val != "" && string(val[0]) == string(" ")) {
 		return true
 	}
@@ -132,7 +132,6 @@ func validUrl(url string) bool {
 
 func invalidKey(key string) bool {
 	isAlpha := regexp.MustCompile(`^[A-Za-z0-9-]+$`).MatchString
-
 	return !isAlpha(key)
 }
 

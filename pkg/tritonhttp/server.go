@@ -67,14 +67,14 @@ func (s *Server) ListenAndServe() error {
 
 func (s *Server) ValidateServerSetup() error {
 	// Validating the doc root of the server
-	fi, err := os.Stat(s.DocRoot)
+	directory, err := os.Stat(s.DocRoot)
 
 	if os.IsNotExist(err) {
 		return err
 	}
 
-	if !fi.IsDir() {
-		return fmt.Errorf("doc root %q is not a directory", s.DocRoot)
+	if !directory.IsDir() {
+		return errors.New("DocRoot not a directory")
 	}
 
 	return nil
@@ -144,24 +144,24 @@ func (s *Server) HandleGoodRequest(req *Request) (res *Response) {
 	filePath := filepath.Join(root, url)
 	filePath = filepath.Clean(filePath)
 
-	absoluteURL, err1 := filepath.Abs(filePath)
+	url, err1 := filepath.Abs(filePath)
 	if err1 != nil {
 		res.HandleNotFound(req)
 		return
 	}
-	req.URL = absoluteURL
+	req.URL = url
 
-	absoluteDocRoot, err2 := filepath.Abs(root)
+	directory, err2 := filepath.Abs(root)
 	if err2 != nil {
 		res.HandleNotFound(req)
 		return
 	}
-	if !strings.HasPrefix(absoluteURL, absoluteDocRoot) || !fileExists(absoluteURL) || isDirNoSlash(absoluteURL) {
+	if !strings.HasPrefix(url, directory) || !fileExists(url) || isValidDir(url) {
 		res.HandleNotFound(req)
 		return
 	}
 
-	res.HandleOK(req, absoluteURL)
+	res.HandleOK(req, url)
 
 	return res
 }
@@ -174,21 +174,17 @@ func (res *Response) HandleOK(req *Request, path string) {
 	res.FilePath = path
 
 	m := make(map[string]string)
-	m["Date"] = getCurrentDate()
+	contentLength := getContentLength(path)
+	m["Content-Length"] = contentLength
+	m["Date"] = FormatTime(time.Now())
 	m["Last-Modified"] = getLastModifiedTime(path)
-	contentLen := getContentLength(path)
-	fmt.Println("Content len ", contentLen)
-	m["Content-Length"] = contentLen
-
-	extension := MIMETypeByExtension(filepath.Ext(path))
-	fmt.Println("Extension ", extension)
-	m["Content-Type"] = extension
+	m["Content-Type"] = MIMETypeByExtension(filepath.Ext(path))
 	if req.Close {
 		m["Connection"] = "close"
 	}
 	res.Header = m
 
-	if contentLen == "" {
+	if contentLength == "" {
 		res.StatusCode = statusMethodNotFound
 		res.FilePath = ""
 	}
@@ -201,7 +197,7 @@ func (res *Response) HandleBadRequest() {
 	res.StatusCode = statusMethodNotAllowed
 
 	m := make(map[string]string)
-	m["Date"] = getCurrentDate()
+	m["Date"] = FormatTime(time.Now())
 	m["Connection"] = "close"
 	res.Header = m
 }
@@ -213,17 +209,13 @@ func (res *Response) HandleNotFound(req *Request) {
 	res.StatusCode = statusMethodNotFound
 
 	m := make(map[string]string)
-	m["Date"] = getCurrentDate()
+	m["Date"] = FormatTime(time.Now())
 
 	if req.Close {
 		m["Connection"] = "close"
 	}
 
 	res.Header = m
-}
-
-func getCurrentDate() string {
-	return FormatTime(time.Now())
 }
 
 //get last modified time of the file
@@ -245,8 +237,6 @@ func getContentLength(filename string) string {
 	return strconv.FormatInt(file.Size(), 10)
 }
 
-// fileExists checks if a file exists and is not a directory before we
-// try using it to prevent further errors.
 func fileExists(filename string) bool {
 	info, err := os.Stat(filename)
 	if os.IsNotExist(err) {
@@ -255,7 +245,7 @@ func fileExists(filename string) bool {
 	return !info.IsDir()
 }
 
-func isDirNoSlash(path string) bool {
+func isValidDir(path string) bool {
 	fileInfo, err := os.Stat(path)
 	if err != nil {
 		return true
@@ -263,6 +253,5 @@ func isDirNoSlash(path string) bool {
 	if fileInfo.IsDir() && string(path[len(path)-1]) != "/" {
 		return true
 	}
-
 	return false
 }
